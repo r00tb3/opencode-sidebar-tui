@@ -320,14 +320,57 @@ function StatusView(props: { context: Plugin.Context; state: () => GitState }) {
   const warning = () => theme().text.feedback.warning.base
   const error = () => theme().text.feedback.error.base
 
+  const accent = () => theme().hue.accent[500]
   const [budget, setBudget] = createSignal<FooterBudget | undefined>(undefined)
-  const providerID = createMemo(() => {
+  const selection = createMemo(() => {
     try {
-      return String(props.context.ui.model.current()?.providerID ?? "")
+      return props.context.ui.model.current()
     } catch {
-      return ""
+      return undefined
     }
   })
+  const providerID = createMemo(() => String(selection()?.providerID ?? ""))
+
+  // OpenRouter resells other vendors' models ("anthropic/claude-..."), so the
+  // vendor segment of the id is the provider actually serving the request.
+  const providerText = createMemo(() => {
+    const current = selection()
+    if (!current) return ""
+    if (current.providerID === "openrouter") {
+      const vendor = current.modelID.split("/")[0]?.trim()
+      if (vendor && vendor !== "openrouter") return vendor.toLowerCase()
+    }
+    return current.providerID
+  })
+  const modelDetail = createMemo(() => {
+    const current = selection()
+    if (!current) return ""
+    let name: string | undefined
+    try {
+      const models = props.context.data.location.model.list() ?? []
+      name = models.find(
+        (model) =>
+          model.providerID === current.providerID &&
+          (model.id === current.modelID || model.modelID === current.modelID),
+      )?.name
+    } catch {
+      // list unavailable before the first sync; the id still reads fine
+    }
+    const via = current.providerID === "openrouter" ? ` via ${current.providerID}` : ""
+    return `${name ?? current.modelID}${via}`
+  })
+  const openModelPicker = () => {
+    try {
+      props.context.keymap.dispatch("model.list")
+    } catch {
+      props.context.ui.toast.show({
+        title: "Switch provider",
+        message: "Open the model picker with /models.",
+        variant: "info",
+        duration: 3000,
+      })
+    }
+  }
 
   const refreshBudget = async () => {
     try {
@@ -383,6 +426,20 @@ function StatusView(props: { context: Plugin.Context; state: () => GitState }) {
           </text>
         </box>
       ) : null}
+      {providerText() ? (
+        <box
+          flexDirection="row"
+          onMouseEnter={() =>
+            showHint("Model provider", `${modelDetail()}. Click to switch provider or model.`)
+          }
+          onClick={openModelPicker}
+        >
+          <text>
+            <span style={{ fg: muted() }}> ◇ </span>
+            <span style={{ fg: accent() }}>{providerText()}</span>
+          </text>
+        </box>
+      ) : null}
       {budget() ? (
         <box
           flexDirection="row"
@@ -410,13 +467,13 @@ function StatusView(props: { context: Plugin.Context; state: () => GitState }) {
         onMouseEnter={() =>
           showHint(
             "Footer key",
-            "☕ Coffee sleep-prevention · ♞ Ponytail style · ⑂ branch · + added · ± changed · ? untracked · ↻ provider budget · ↗ context · $ session cost · ctrl+p commands",
+            "☕ Coffee sleep-prevention · ♞ Ponytail style · ⑂ branch · + added · ± changed · ? untracked · ◇ model provider (click to switch) · ↻ provider budget · ↗ context · $ session cost · ctrl+p commands",
           )
         }
         onClick={() =>
           showHint(
             "Footer key",
-            "☕ Coffee sleep-prevention · ♞ Ponytail style · ⑂ branch · + added · ± changed · ? untracked · ↻ provider budget · ↗ context · $ session cost · ctrl+p commands",
+            "☕ Coffee sleep-prevention · ♞ Ponytail style · ⑂ branch · + added · ± changed · ? untracked · ◇ model provider (click to switch) · ↻ provider budget · ↗ context · $ session cost · ctrl+p commands",
           )
         }
       >
@@ -469,6 +526,13 @@ function PathView(props: { context: Plugin.Context; state: () => GitState; sessi
 export function setupFooter(context: Plugin.Context) {
     if (context.options?.enabled === false) return
 
+    // Model names for the provider tooltip; the chip still renders from the selection alone.
+    try {
+      void context.data.location.model.sync(context.location)
+    } catch {
+      // list unavailable; the tooltip falls back to the model id
+    }
+
     // Hover events need the renderer's "motion" mouse mode; the TUI starts in "drag" mode.
     try {
       const renderer: any = context.renderer
@@ -496,6 +560,7 @@ export function setupFooter(context: Plugin.Context) {
                 "☕ Coffee — sleep-prevention level (off / idle / display / system)",
                 "♞ Ponytail — working-style level (off / lite / full / ultra)",
                 "⑂ branch · + added · ± changed · ? untracked · ! conflicts",
+                "◇ model provider serving the current model — click it, or use /models, to switch",
                 "↻ provider budget remaining · ↗ context tokens · $ session cost",
                 "path:branch — current project and branch",
                 "ctrl+p — command palette",

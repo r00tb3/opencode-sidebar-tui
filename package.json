@@ -1,6 +1,6 @@
 {
   "name": "opencode-statusdeck",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenCode V2 status deck: ordered sidebar panels with live skills, plugins and todos, plus a git/provider budget footer and optional auto-todo.",
   "author": "opencode-statusdeck contributors",
   "type": "module",

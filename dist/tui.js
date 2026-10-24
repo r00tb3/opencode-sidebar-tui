@@ -2040,14 +2040,51 @@ function StatusView(props) {
   const success = () => theme().text.feedback.success.base;
   const warning = () => theme().text.feedback.warning.base;
   const error = () => theme().text.feedback.error.base;
+  const accent = () => theme().hue.accent[500];
   const [budget, setBudget] = createSignal2(undefined);
-  const providerID = createMemo2(() => {
+  const selection = createMemo2(() => {
     try {
-      return String(props.context.ui.model.current()?.providerID ?? "");
+      return props.context.ui.model.current();
     } catch {
-      return "";
+      return;
     }
   });
+  const providerID = createMemo2(() => String(selection()?.providerID ?? ""));
+  const providerText = createMemo2(() => {
+    const current = selection();
+    if (!current)
+      return "";
+    if (current.providerID === "openrouter") {
+      const vendor = current.modelID.split("/")[0]?.trim();
+      if (vendor && vendor !== "openrouter")
+        return vendor.toLowerCase();
+    }
+    return current.providerID;
+  });
+  const modelDetail = createMemo2(() => {
+    const current = selection();
+    if (!current)
+      return "";
+    let name;
+    try {
+      const models = props.context.data.location.model.list() ?? [];
+      name = models.find((model) => model.providerID === current.providerID && (model.id === current.modelID || model.modelID === current.modelID))?.name;
+    } catch {}
+    const via = current.providerID === "openrouter" ? ` via ${current.providerID}` : "";
+    return `${name ?? current.modelID}${via}`;
+  });
+  const openModelPicker = () => {
+    try {
+      props.context.keymap.dispatch("model.list");
+    } catch {
+      props.context.ui.toast.show({
+        title: "Switch provider",
+        message: "Open the model picker with /models.",
+        variant: "info",
+        duration: 3000
+      });
+    }
+  };
   const refreshBudget = async () => {
     try {
       setBudget(await readFooterBudget(providerID()));
@@ -2118,6 +2155,23 @@ function StatusView(props) {
           ]
         }, undefined, true, undefined, this)
       }, undefined, false, undefined, this) : null,
+      providerText() ? /* @__PURE__ */ jsxDEV2("box", {
+        flexDirection: "row",
+        onMouseEnter: () => showHint("Model provider", `${modelDetail()}. Click to switch provider or model.`),
+        onClick: openModelPicker,
+        children: /* @__PURE__ */ jsxDEV2("text", {
+          children: [
+            /* @__PURE__ */ jsxDEV2("span", {
+              style: { fg: muted() },
+              children: " \u25C7 "
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsxDEV2("span", {
+              style: { fg: accent() },
+              children: providerText()
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this) : null,
       budget() ? /* @__PURE__ */ jsxDEV2("box", {
         flexDirection: "row",
         onMouseEnter: () => showHint("Provider budget", `Remaining ${budget().label} budget: ${budget().percent}%. Green is 50% or more, yellow 20% or more, red below 20%.`),
@@ -2142,8 +2196,8 @@ function StatusView(props) {
       }, undefined, false, undefined, this) : null,
       /* @__PURE__ */ jsxDEV2("box", {
         flexDirection: "row",
-        onMouseEnter: () => showHint("Footer key", "\u2615 Coffee sleep-prevention \xB7 \u265E Ponytail style \xB7 \u2442 branch \xB7 + added \xB7 \xB1 changed \xB7 ? untracked \xB7 \u21BB provider budget \xB7 \u2197 context \xB7 $ session cost \xB7 ctrl+p commands"),
-        onClick: () => showHint("Footer key", "\u2615 Coffee sleep-prevention \xB7 \u265E Ponytail style \xB7 \u2442 branch \xB7 + added \xB7 \xB1 changed \xB7 ? untracked \xB7 \u21BB provider budget \xB7 \u2197 context \xB7 $ session cost \xB7 ctrl+p commands"),
+        onMouseEnter: () => showHint("Footer key", "\u2615 Coffee sleep-prevention \xB7 \u265E Ponytail style \xB7 \u2442 branch \xB7 + added \xB7 \xB1 changed \xB7 ? untracked \xB7 \u25C7 model provider (click to switch) \xB7 \u21BB provider budget \xB7 \u2197 context \xB7 $ session cost \xB7 ctrl+p commands"),
+        onClick: () => showHint("Footer key", "\u2615 Coffee sleep-prevention \xB7 \u265E Ponytail style \xB7 \u2442 branch \xB7 + added \xB7 \xB1 changed \xB7 ? untracked \xB7 \u25C7 model provider (click to switch) \xB7 \u21BB provider budget \xB7 \u2197 context \xB7 $ session cost \xB7 ctrl+p commands"),
         children: /* @__PURE__ */ jsxDEV2("text", {
           fg: muted(),
           children: " \u24D8"
@@ -2155,6 +2209,9 @@ function StatusView(props) {
 function setupFooter(context) {
   if (context.options?.enabled === false)
     return;
+  try {
+    context.data.location.model.sync(context.location);
+  } catch {}
   try {
     const renderer = context.renderer;
     renderer.enableMouseMovement = true;
@@ -2177,6 +2234,7 @@ function setupFooter(context) {
               "\u2615 Coffee \u2014 sleep-prevention level (off / idle / display / system)",
               "\u265E Ponytail \u2014 working-style level (off / lite / full / ultra)",
               "\u2442 branch \xB7 + added \xB7 \xB1 changed \xB7 ? untracked \xB7 ! conflicts",
+              "\u25C7 model provider serving the current model \u2014 click it, or use /models, to switch",
               "\u21BB provider budget remaining \xB7 \u2197 context tokens \xB7 $ session cost",
               "path:branch \u2014 current project and branch",
               "ctrl+p \u2014 command palette"

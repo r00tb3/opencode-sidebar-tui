@@ -52,6 +52,10 @@ redistribution.
 - The sidebar Budget row keeps the `Σ` session-cost marker. The bottom footer
   keeps the coffee/ponytail badges from their companion plugins and one
   `path:branch` display.
+- The footer shows the provider serving the current model: for OpenRouter it
+  resolves the vendor from the model id (`anthropic/claude-...` shows
+  `◇ anthropic`), otherwise it shows the provider id. Clicking it opens the
+  model picker, so a provider switch takes one click.
 - Sidebar settings are kept under plugin id `oc-sidebar.tui` and storage key
   `oc-sidebar.settings`, matching the previous local sidebar.
 
@@ -100,7 +104,7 @@ When the package is published, replace the last entry with the pinned package
 name, for example:
 
 ```jsonc
-"opencode-statusdeck@0.1.0"
+"opencode-statusdeck@0.2.0"
 ```
 
 The package's plugin id remains `oc-sidebar.tui`, so the previous sidebar
@@ -121,7 +125,7 @@ When published, use the same pinned package name:
 
 ```jsonc
 {
-  "plugins": ["opencode-statusdeck@0.1.0"]
+  "plugins": ["opencode-statusdeck@0.2.0"]
 }
 ```
 
