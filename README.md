@@ -17,6 +17,9 @@ The name is deliberate: the plain `opencode-sidebar` name already belongs to an
 unrelated tmux sidebar launcher on npm, and "statusdeck" describes what is
 actually shipped - a deck of status panels plus a status footer.
 
+The local checkout folder is still `~/opencode-combo`; that is only a path.
+Rename it whenever you like and update the two install paths below to match.
+
 ## What is combined
 
 | Piece | Upstream | What changed here |
@@ -88,7 +91,7 @@ the old `oc-sidebar` and `oc-git-status` entries with one entry:
     "-opencode.sidebar.footer",
     "-opencode.plugins",
     "-aiev.todolist.tui",
-    "C:/Users/r00tb3/opencode-statusdeck"
+    "C:/Users/r00tb3/opencode-combo"
   ]
 }
 ```
@@ -110,7 +113,7 @@ Add the package to `opencode.jsonc` only if you want the `todowrite` /
 
 ```jsonc
 {
-  "plugins": ["C:/Users/r00tb3/opencode-statusdeck"]
+  "plugins": ["C:/Users/r00tb3/opencode-combo"]
 }
 ```
 
