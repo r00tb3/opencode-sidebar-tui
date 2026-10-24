@@ -1,4 +1,4 @@
-# opencode-combo-sidebar
+# opencode-statusdeck
 
 **A combined, modified OpenCode V2 distribution, not an upstream original.**
 
@@ -10,8 +10,12 @@ provide:
 - a prompt-footer contribution with git status and provider budget;
 - an optional server-side todo/auto-todo plugin.
 
-It is maintained as a small local distribution. The working package name is
-`opencode-combo-sidebar`; no npm or GitHub release has been published yet.
+It is maintained as a small local distribution. The package name is
+`opencode-statusdeck`; no npm or GitHub release has been published yet.
+
+The name is deliberate: the plain `opencode-sidebar` name already belongs to an
+unrelated tmux sidebar launcher on npm, and "statusdeck" describes what is
+actually shipped - a deck of status panels plus a status footer.
 
 ## What is combined
 
@@ -84,7 +88,7 @@ the old `oc-sidebar` and `oc-git-status` entries with one entry:
     "-opencode.sidebar.footer",
     "-opencode.plugins",
     "-aiev.todolist.tui",
-    "C:/Users/r00tb3/opencode-combo"
+    "C:/Users/r00tb3/opencode-statusdeck"
   ]
 }
 ```
@@ -93,7 +97,7 @@ When the package is published, replace the last entry with the pinned package
 name, for example:
 
 ```jsonc
-"opencode-combo-sidebar@0.1.0"
+"opencode-statusdeck@0.1.0"
 ```
 
 The package's plugin id remains `oc-sidebar.tui`, so the previous sidebar
@@ -106,7 +110,7 @@ Add the package to `opencode.jsonc` only if you want the `todowrite` /
 
 ```jsonc
 {
-  "plugins": ["C:/Users/r00tb3/opencode-combo"]
+  "plugins": ["C:/Users/r00tb3/opencode-statusdeck"]
 }
 ```
 
@@ -114,7 +118,7 @@ When published, use the same pinned package name:
 
 ```jsonc
 {
-  "plugins": ["opencode-combo-sidebar@0.1.0"]
+  "plugins": ["opencode-statusdeck@0.1.0"]
 }
 ```
 

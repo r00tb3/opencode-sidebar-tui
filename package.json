@@ -1,8 +1,8 @@
 {
-  "name": "opencode-combo-sidebar",
+  "name": "opencode-statusdeck",
   "version": "0.1.0",
-  "description": "Combined OpenCode V2 sidebar and footer with live skills, todos, git status, provider budget, and optional auto-todo.",
-  "author": "opencode-combo-sidebar contributors",
+  "description": "OpenCode V2 status deck: ordered sidebar panels with live skills, plugins and todos, plus a git/provider budget footer and optional auto-todo.",
+  "author": "opencode-statusdeck contributors",
   "type": "module",
   "license": "MIT",
   "main": "./dist/server/index.js",
