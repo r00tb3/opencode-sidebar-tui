@@ -1,4 +1,4 @@
-﻿/** @jsxImportSource @opentui/solid */
+/** @jsxImportSource @opentui/solid */
 // One ordered sidebar content block: MCP, Budget, Context, Plugins, Skills, Todo.
 // The built-in sidebar sections are disabled in cli.json so this block owns the
 // content order; the Todo server tool remains available for real todo data.
@@ -391,9 +391,10 @@ function compactNumber(value: number): string {
 	return String(number)
 }
 
+// Two dots read as "cut off", unlike a single one that looks like a period.
 function clipText(value: unknown, width: number): string {
 	const text = String(value ?? "")
-	return text.length <= width ? text : text.slice(0, Math.max(1, width - 1)) + "…"
+	return text.length <= width ? text : text.slice(0, Math.max(1, width - 1)) + "\u2026"
 }
 
 function buildUsageReport(sessions: any[]) {
@@ -448,7 +449,7 @@ function UsageReport(props: { context: Plugin.Context; sessions: any[]; onClose:
 	return (
 		<box flexDirection="column" gap={1} width="100%">
 			<box flexDirection="row" justifyContent="space-between" gap={1}>
-				<text fg={text()} attributes={TextAttributes.BOLD}>Usage — all sessions</text>
+				<text fg={text()} attributes={TextAttributes.BOLD}>Usage - all sessions</text>
 				<box flexDirection="row" onMouseDown={props.onClose}>
 					<text fg={accent()}>Close</text>
 				</box>
@@ -701,7 +702,6 @@ function Sidebar(props: { sessionID: string }) {
 	})
 	let indexSession = ""
 	let indexProcessed = 0
-	let indexLastMessage: any
 	let indexSkills = new Map<string, SkillUsage>()
 	let indexToolUsage = new Map<string, number>()
 	let indexTodos: any[] | undefined
@@ -709,6 +709,8 @@ function Sidebar(props: { sessionID: string }) {
 	let indexWrites: Array<{ at: number; todos: any[] }> = []
 	let indexTiming: any = undefined
 	let indexTodoParts = new Set<string>()
+	let indexToolParts = new Set<string>()
+	let indexPartCounts = new Map<string, number>()
 	let indexView: {
 		skills: Map<string, SkillUsage>
 		tools: Map<string, number>
@@ -724,7 +726,6 @@ function Sidebar(props: { sessionID: string }) {
 	const resetIndex = () => {
 		indexSession = props.sessionID
 		indexProcessed = 0
-		indexLastMessage = undefined
 		indexSkills = new Map()
 		indexToolUsage = new Map()
 		indexTodos = undefined
@@ -732,21 +733,28 @@ function Sidebar(props: { sessionID: string }) {
 		indexWrites = []
 		indexTiming = undefined
 		indexTodoParts = new Set()
+		indexToolParts = new Set()
+		indexPartCounts = new Map()
 		indexView = { skills: indexSkills, tools: indexToolUsage, todos: undefined, timing: undefined }
 	}
 
-	const processMessage = (message: any, todoOnly: boolean): boolean => {
+	const processMessage = (message: any): boolean => {
 		let changed = false
 		const content = message?.content
 		if (!Array.isArray(content)) return false
 		for (const part of content) {
 			if (part?.type !== "tool") continue
 			const name = String(part?.name ?? "")
-			if (!todoOnly && name) {
+			// Messages are re-scanned as they grow, so each tool part counts once.
+			const key = `${message?.id ?? ""}:${part?.id ?? ""}`
+			const keyless = key === ":"
+			const fresh = keyless || !indexToolParts.has(key)
+			if (fresh && !keyless) indexToolParts.add(key)
+			if (fresh && name) {
 				indexToolUsage.set(name, (indexToolUsage.get(name) ?? 0) + 1)
 				changed = true
 			}
-			if (!todoOnly && (name === "skill" || name.endsWith(".skill"))) {
+			if (fresh && (name === "skill" || name.endsWith(".skill"))) {
 				const input = part?.state?.input
 				const keys = [
 					...new Set(
@@ -791,15 +799,18 @@ function Sidebar(props: { sessionID: string }) {
 		const list = usageMessages()
 		if (indexSession !== props.sessionID || list.length < indexProcessed) resetIndex()
 		let changed = false
-		for (let i = indexProcessed; i < list.length; i++) {
-			if (processMessage(list[i], false)) changed = true
+		// A finished message can still gain parts: a tool call is written before
+		// its result, and the next step may start first. Scan every message whose
+		// part count moved, not just the newest, or a skill call made mid-turn
+		// waits for the whole turn to end.
+		for (let i = 0; i < list.length; i++) {
+			const message = list[i]
+			const id = String(message?.id ?? "")
+			const parts = Array.isArray(message?.content) ? message.content.length : 0
+			if (id && indexPartCounts.get(id) === parts) continue
+			if (id) indexPartCounts.set(id, parts)
+			if (processMessage(message)) changed = true
 		}
-		const last = list.at(-1)
-		if (last && indexProcessed === list.length && last !== indexLastMessage) {
-			// In-place completion of the newest tool call: refresh todo writes without recounting skills.
-			if (processMessage(last, true)) changed = true
-		}
-		indexLastMessage = last
 		indexProcessed = list.length
 		if (changed) indexView = { skills: indexSkills, tools: indexToolUsage, todos: indexTodos, timing: indexTiming }
 		return indexView
@@ -982,38 +993,52 @@ function Sidebar(props: { sessionID: string }) {
 	}
 
 	// Brackets stay; active/used gets a centered green bullet, inactive keeps an empty bracket.
+	// One bare marker, no brackets: a dot that lights up, a faint dot at rest.
 	const Dot = (props: { on: () => boolean }) => (
-		<box flexDirection="row" flexShrink={0} height={1}>
-			<text fg={muted()}>[</text>
-			<text fg={props.on() ? success() : muted()}>{props.on() ? "•" : " "}</text>
-			<text fg={muted()}>]</text>
-		</box>
+		<text flexShrink={0} fg={props.on() ? success() : muted()}>
+			{props.on() ? "\u2022" : "\u00b7"}
+		</text>
 	)
 
 	const StatusDot = (props: { status: () => string }) => (
-		<box flexDirection="row" flexShrink={0} height={1}>
-			<text fg={muted()}>[</text>
-			<text fg={statusHealthy(props.status()) ? success() : statusProblem(props.status()) ? error() : muted()}>
-				{statusHealthy(props.status()) ? "•" : statusProblem(props.status()) ? "×" : " "}
-			</text>
-			<text fg={muted()}>]</text>
-		</box>
+		<text
+			flexShrink={0}
+			fg={statusHealthy(props.status()) ? success() : statusProblem(props.status()) ? error() : muted()}
+		>
+			{statusHealthy(props.status()) ? "\u2022" : statusProblem(props.status()) ? "!" : "\u00b7"}
+		</text>
 	)
 
-	const Panel = (props: { id: string; title: string; count?: string; action?: any; children: any }) => {
+	const Panel = (props: {
+		id: string
+		title: string
+		count?: string
+		action?: any
+		rule?: boolean
+		children: any
+	}) => {
 		const collapsed = () => settings.collapsed?.[props.id] ?? false
 		return (
 			<box flexDirection="column">
+				{/* A thin rule; no wrapping, so extra cells clip instead of spilling a dash. */}
+				{props.rule === false ? null : (
+					<text fg={muted()} wrapMode="none">
+						{"\u2500".repeat(48)}
+					</text>
+				)}
+				{/* Header: label, its action beside it, count pinned right. */}
 				<box flexDirection="row" gap={1}>
 					<box flexDirection="row" onMouseDown={() => toggleSection(props.id)}>
-						<text fg={text()} attributes={TextAttributes.BOLD}>
-							{collapsed() ? "▸" : "▾"} {props.title}
+						<text fg={muted()} attributes={TextAttributes.BOLD}>
+							{collapsed() ? "+ " : ""}
+							{props.title.toUpperCase()}
 						</text>
 					</box>
-					{props.count ? <text fg={muted()}>{props.count}</text> : null}
 					{props.action ?? null}
+					<box flexGrow={1} />
+					{props.count ? <text fg={muted()}>{props.count}</text> : null}
 				</box>
-				{collapsed() ? null : <box flexDirection="column">{props.children}</box>}
+				{collapsed() ? null : <box flexDirection="column" paddingLeft={1}>{props.children}</box>}
 			</box>
 		)
 	}
@@ -1024,14 +1049,14 @@ function Sidebar(props: { sessionID: string }) {
 		if (expanded()) {
 			return (
 				<box flexDirection="row" onMouseDown={() => toggleExpanded(props.id)}>
-					<text fg={muted()}>- less</text>
+					<text fg={muted()}>less</text>
 				</box>
 			)
 		}
 		if (props.total <= props.visible) return null
 		return (
 			<box flexDirection="row" onMouseDown={() => toggleExpanded(props.id)}>
-				<text fg={muted()}>{`+${props.total - props.visible} more`}</text>
+				<text fg={muted()}>{`${props.total - props.visible} more`}</text>
 			</box>
 		)
 	}
@@ -1049,7 +1074,7 @@ function Sidebar(props: { sessionID: string }) {
 		}))
 		try {
 			const picked = await context.ui.dialog.select({
-				title: "Skills — select to pin or unpin",
+				title: "Skills - select to pin or unpin",
 				placeholder: "Search skills",
 				options,
 				search: (query, items) => {
@@ -1066,7 +1091,7 @@ function Sidebar(props: { sessionID: string }) {
 
 	const showPluginDetails = async (plugin: any) => {
 		const status = String(plugin?.state?.status ?? "unknown")
-		const version = plugin?.version ?? plugin?.source?.version ?? "—"
+		const version = plugin?.version ?? plugin?.source?.version ?? "-"
 		const source =
 			plugin?.source?.type === "local"
 				? plugin.source.path
@@ -1084,7 +1109,7 @@ function Sidebar(props: { sessionID: string }) {
 		if (plugin?.state?.error) lines.push(`error: ${plugin.state.error}`)
 		try {
 			await context.ui.dialog.alert({
-				title: `Plugin — ${plugin?.id ?? "unknown"}`,
+				title: `Plugin - ${plugin?.id ?? "unknown"}`,
 				message: lines.join("\n"),
 			})
 		} catch (error) {
@@ -1115,7 +1140,7 @@ function Sidebar(props: { sessionID: string }) {
 			lines.push(`error: ${typeof server.error === "string" ? server.error : JSON.stringify(server.error)}`)
 		}
 		try {
-			await context.ui.dialog.alert({ title: `MCP — ${name}`, message: lines.join("\n") })
+			await context.ui.dialog.alert({ title: `MCP - ${name}`, message: lines.join("\n") })
 		} catch (error) {
 			trace(`mcp details failed: ${error instanceof Error ? error.message : String(error)}`)
 		}
@@ -1139,7 +1164,7 @@ function Sidebar(props: { sessionID: string }) {
 		const add = (items: any[], label: string, name: (item: any) => string) => {
 			if (items.length === 0) return
 			const shown = items.slice(0, 8).map(name).join(", ")
-			lines.push(`${label} (${items.length}): ${shown}${items.length > 8 ? " …" : ""}`)
+			lines.push(`${label} (${items.length}): ${shown}${items.length > 8 ? " ..." : ""}`)
 		}
 		add(failedPlugins, "Failed plugins", (plugin) => String(plugin?.id ?? "unknown"))
 		add(inactivePlugins, "Inactive plugins", (plugin) => String(plugin?.id ?? "unknown"))
@@ -1172,7 +1197,7 @@ function Sidebar(props: { sessionID: string }) {
 	const sessionUsageSummary = createMemo(() => {
 		const sessions = allSessions().length > 0 ? allSessions() : (context.data.session.list() ?? [])
 		const cost = sessions.reduce((sum, session: any) => sum + safeNumber(session?.cost), 0)
-		return sessions.length > 0 ? `${sessions.length} · ${formatMoney(cost)}` : "usage"
+		return sessions.length > 0 ? `${sessions.length} \u00b7 ${formatMoney(cost)}` : "usage"
 	})
 
 	const showCrossSessionUsage = async () => {
@@ -1232,31 +1257,31 @@ function Sidebar(props: { sessionID: string }) {
 			{
 				title: "Tokens",
 				value: "summary:tokens",
-				description: `${compactNumber(report.total.input)} in · ${compactNumber(report.total.output)} out`,
+				description: `${compactNumber(report.total.input)} in - ${compactNumber(report.total.output)} out`,
 				category: "Summary",
 			},
 			{
 				title: "Cache",
 				value: "summary:cache",
-				description: `${compactNumber(report.total.cacheRead)} read · ${compactNumber(report.total.cacheWrite)} write`,
+				description: `${compactNumber(report.total.cacheRead)} read - ${compactNumber(report.total.cacheWrite)} write`,
 				category: "Summary",
 			},
 			...report.topModels.map(([key, row], index) => ({
 				title: key,
 				value: `model:${index}`,
-				description: `${formatMoney(row.cost)} · ${compactNumber(row.input)} in · ${compactNumber(row.output)} out`,
+				description: `${formatMoney(row.cost)} - ${compactNumber(row.input)} in - ${compactNumber(row.output)} out`,
 				category: "Models",
 			})),
 			...recent.map((session, index) => ({
 				title: String(session?.title ?? session?.id ?? "session"),
 				value: `recent:${index}`,
-				description: `${formatMoney(safeNumber(session?.cost))} · ${session?.model?.providerID ?? "?"}/${session?.model?.id ?? "?"}`,
+				description: `${formatMoney(safeNumber(session?.cost))} - ${session?.model?.providerID ?? "?"}/${session?.model?.id ?? "?"}`,
 				category: "Recent sessions",
 			})),
 		]
 		try {
 			await context.ui.dialog.select({
-				title: "Usage — all sessions",
+				title: "Usage - all sessions",
 				placeholder: "Search summary, models, or recent sessions",
 				options,
 				search: (query, items) => {
@@ -1271,7 +1296,7 @@ function Sidebar(props: { sessionID: string }) {
 			trace(`cross-session usage failed: ${error instanceof Error ? error.message : String(error)}`)
 			context.ui.toast.show({
 				title: "Usage",
-				message: `${sessions.length} sessions · ${formatMoney(report.total.cost)} total`,
+				message: `${sessions.length} sessions - ${formatMoney(report.total.cost)} total`,
 				variant: "warning",
 				duration: 3000,
 			})
@@ -1354,15 +1379,16 @@ function Sidebar(props: { sessionID: string }) {
 		const visible = () => shown(list(), "mcp")
 		const activeCount = () => list().filter(mcpActive).length
 		const failedCount = () => list().filter(mcpProblem).length
-		const count = () => `${activeCount()}/${list().length}${failedCount() ? ` !${failedCount()}` : ""}`
+		const count = () => `${activeCount()}${failedCount() ? ` !${failedCount()}` : ""}`
 		return (
 			<Panel
 				id="mcp"
 				title="MCP"
+				rule={false}
 				count={list().length > 0 ? count() : undefined}
 				action={
 					<box flexDirection="row" onMouseDown={() => void refreshMCP()}>
-						<text fg={muted()}>[r]</text>
+						<text fg={muted()}>{"\u21bb"}</text>
 					</box>
 				}
 			>
@@ -1374,20 +1400,16 @@ function Sidebar(props: { sessionID: string }) {
 						const problem = mcpProblem(server)
 						const resources = mcpResourcesFor(server)
 						const calls = mcpToolCalls(server)
-						const label = `${server?.name ?? server?.id ?? "server"} - ${status}${resources > 0 ? ` · ${resources} res` : ""}${calls > 0 ? ` · ${calls} calls` : ""}`
+						const meta = resources > 0 ? `${resources} res` : calls > 0 ? `${calls}x` : ""
 						return (
-							<box flexDirection="row" gap={1}>
-								<box
-									flexDirection="row"
-									gap={1}
-									flexGrow={1}
-									flexShrink={1}
-									minWidth={0}
-									onMouseDown={() => void showMCPDetails(server)}
-								>
-									<StatusDot status={() => status} />
-									<text fg={problem ? error() : muted()} wrapMode="none">{clipText(label, 20)}</text>
-								</box>
+							// The dot says connected; the row carries only the name and its usage.
+							<box flexDirection="row" gap={1} onMouseDown={() => void showMCPDetails(server)}>
+								<StatusDot status={() => status} />
+								<text fg={problem ? error() : text()} wrapMode="none">
+									{clipText(server?.name ?? server?.id ?? "server", 18)}
+								</text>
+								<box flexGrow={1} />
+								<text fg={muted()}>{meta}</text>
 							</box>
 						)
 					})
@@ -1399,34 +1421,28 @@ function Sidebar(props: { sessionID: string }) {
 
 	const BudgetPanel = () => {
 		const view = () => budget()
-		const warning = () => {
-			const value = view()
-			if (!value) return ""
-			if (value.tone === "error") return "Low budget"
-			if (value.tone === "warning") return "Budget low"
-			return ""
-		}
 		return (
 			<Panel
 				id="budget"
 				title="Budget"
 				action={
 					<box flexDirection="row" onMouseDown={() => void showCrossSessionUsage()}>
-						<text fg={muted()}>Σ</text>
+						<text fg={muted()}>$</text>
 					</box>
 				}
 			>
 				<box flexDirection="row" gap={1} height={1}>
 					<Bar percent={() => view()?.percent ?? 0} colour={() => (view() ? toneColour(view()!.tone) : muted())} />
-					<text fg={view() ? toneColour(view()!.tone) : muted()}>{view()?.barLabel ?? "Loading..."}</text>
+					<box flexGrow={1} />
+					<text fg={view() ? toneColour(view()!.tone) : muted()}>{view()?.barLabel ?? "..."}</text>
 				</box>
-				<text fg={muted()} wrapMode="none">{clipText(view()?.detail ?? "", 22)}</text>
-				{view()?.reset ? <text fg={muted()} wrapMode="none">{clipText(`resets ${view()!.reset}`, 22)}</text> : null}
-				<text fg={muted()} wrapMode="none">{clipText(view()?.note ?? "", 22)}</text>
+				<text fg={muted()} wrapMode="none">{clipText(view()?.detail ?? "", 28)}</text>
+				{view()?.reset ? <text fg={muted()} wrapMode="none">{clipText(`resets ${view()!.reset}`, 28)}</text> : null}
+				<text fg={muted()} wrapMode="none">{clipText(view()?.note ?? "", 28)}</text>
+				{/* The bar label already says "10% left"; a second warning line is noise. */}
 				{budgetStale() ? <text fg={toneColour("warning")}>stale</text> : null}
-				{warning() ? <text fg={toneColour(view()!.tone)}>{warning()}</text> : null}
 				<box flexDirection="row" onMouseDown={() => void showCrossSessionUsage()}>
-					<text fg={accent()}>Σ {sessionUsageSummary()}</text>
+					<text fg={accent()}>{"\u03a3"} {sessionUsageSummary()}</text>
 				</box>
 			</Panel>
 		)
@@ -1443,10 +1459,11 @@ function Sidebar(props: { sessionID: string }) {
 			<Panel id="context" title="Context">
 				<box flexDirection="row" gap={1} height={1}>
 					<Bar percent={() => state().percent} colour={() => colour()} />
+					<box flexGrow={1} />
 					<text fg={colour()}>{state().percent}%</text>
 				</box>
-				<text fg={muted()} wrapMode="none">{`${compactNumber(state().tokens)} / ${limitText()} · ${formatMoney(sessionCost())}`}</text>
-				<text fg={muted()}>{`cache ${state().cacheRate}% · ${state().tps.toFixed(1)} t/s`}</text>
+				<text fg={muted()} wrapMode="none">{`${compactNumber(state().tokens)} / ${limitText()} \u00b7 ${formatMoney(sessionCost())}`}</text>
+				<text fg={muted()}>{`cache ${state().cacheRate}% \u00b7 ${state().tps.toFixed(1)} t/s`}</text>
 				{warningText() ? <text fg={warningColour()}>{warningText()}</text> : null}
 			</Panel>
 		)
@@ -1457,7 +1474,7 @@ function Sidebar(props: { sessionID: string }) {
 		const visible = () => shown(list(), "plugins")
 		const activeCount = () => list().filter((plugin: any) => plugin?.state?.status === "active").length
 		const failedCount = () => list().filter((plugin: any) => plugin?.state?.status === "failed").length
-		const count = () => `${activeCount()}/${list().length}${failedCount() ? ` !${failedCount()}` : ""}`
+		const count = () => `${activeCount()}${failedCount() ? ` !${failedCount()}` : ""}`
 		return (
 			<Panel
 				id="plugins"
@@ -1466,10 +1483,10 @@ function Sidebar(props: { sessionID: string }) {
 				action={
 					<>
 						<box flexDirection="row" onMouseDown={() => void openConfigAudit()}>
-							<text fg={muted()}>[!]</text>
+							<text fg={muted()}>!</text>
 						</box>
 						<box flexDirection="row" onMouseDown={() => void refreshPlugins(location(), true)}>
-							<text fg={muted()}>[r]</text>
+							<text fg={muted()}>{"\u21bb"}</text>
 						</box>
 					</>
 				}
@@ -1482,20 +1499,16 @@ function Sidebar(props: { sessionID: string }) {
 						const failed = status === "failed"
 						const version = plugin?.version ?? plugin?.source?.version
 						const calls = pluginToolCalls(plugin)
-						const label = `${plugin?.id ?? plugin?.name ?? "plugin"}${version ? " " + version : ""}${calls > 0 ? ` · ${calls} calls` : ""}${failed ? " ! failed" : ""}`
+						const label = `${plugin?.id ?? plugin?.name ?? "plugin"}${version ? " " + version : ""}`
 						return (
-							<box flexDirection="row" gap={1}>
-								<box
-									flexDirection="row"
-									gap={1}
-									flexGrow={1}
-									flexShrink={1}
-									minWidth={0}
-									onMouseDown={() => void showPluginDetails(plugin)}
-								>
-									<StatusDot status={() => status} />
-									<text fg={failed ? error() : muted()} wrapMode="none">{clipText(label, 20)}</text>
-								</box>
+							// Name left, usage as quiet right-aligned meta.
+							<box flexDirection="row" gap={1} onMouseDown={() => void showPluginDetails(plugin)}>
+								<StatusDot status={() => status} />
+								<text fg={failed ? error() : text()} wrapMode="none">
+									{clipText(label, 20)}
+								</text>
+								<box flexGrow={1} />
+								<text fg={muted()}>{calls > 0 ? String(calls) : ""}</text>
 							</box>
 						)
 					})
@@ -1534,10 +1547,10 @@ function Sidebar(props: { sessionID: string }) {
 			<Panel
 				id="skills"
 				title="Skills"
-				count={list().length > 0 ? `${usedCount()}/${list().length}` : undefined}
+				count={list().length > 0 ? String(usedCount()) : undefined}
 				action={
 					<box flexDirection="row" onMouseDown={() => void openSkillSearch()}>
-						<text fg={muted()}>[?]</text>
+						<text fg={muted()}>?</text>
 					</box>
 				}
 			>
@@ -1549,19 +1562,14 @@ function Sidebar(props: { sessionID: string }) {
 						const isUsed = (usageOf(skill)?.count ?? 0) > 0
 						const pinned = isPinned(skill)
 						return (
-							<box flexDirection="row" gap={1}>
-								<box
-									flexDirection="row"
-									gap={1}
-									flexGrow={1}
-									flexShrink={1}
-									minWidth={0}
-									onMouseDown={() => togglePin(id)}
-								>
-									<Dot on={() => isUsed} />
-									<text fg={muted()} wrapMode="none">{clipText(skill?.name ?? skill?.id ?? "skill", 18)}</text>
-									<text fg={pinned ? success() : muted()}>{pinned ? "★" : "☆"}</text>
-								</box>
+							// Used skills read bright, untouched ones recede; the pin sits right.
+							<box flexDirection="row" gap={1} onMouseDown={() => togglePin(id)}>
+								<Dot on={() => isUsed} />
+								<text fg={isUsed ? text() : muted()} wrapMode="none">
+									{clipText(skill?.name ?? skill?.id ?? "skill", 22)}
+								</text>
+								<box flexGrow={1} />
+								<text fg={pinned ? accent() : muted()}>{pinned ? "*" : ""}</text>
 							</box>
 						)
 					})
@@ -1583,10 +1591,11 @@ function Sidebar(props: { sessionID: string }) {
 		}
 		const percent = () => (list().length > 0 ? Math.round((completed().length / list().length) * 100) : 0)
 		const count = () => `${completed().length}/${list().length}`
-		const progress = () => `${percent()}%${timeLabel() ? ` · ${timeLabel()}` : ""}`
+		// The count already says how far along it is; the line only carries time.
+		const progress = () => timeLabel() ?? ""
 		const TodoMark = (props: { status: string | undefined }) => {
-			if (props.status === "completed") return <text fg={success()}>[x]</text>
-			if (props.status === "cancelled") return <text fg={muted()}>[-]</text>
+			if (props.status === "completed") return <text fg={success()}>x</text>
+			if (props.status === "cancelled") return <text fg={muted()}>-</text>
 			return <Dot on={() => props.status === "in_progress"} />
 		}
 		return (
@@ -1595,18 +1604,21 @@ function Sidebar(props: { sessionID: string }) {
 					<text fg={muted()}>No todos</text>
 				) : (
 					<>
-						<text fg={muted()}>{progress()}</text>
+						{progress() ? <text fg={muted()}>{progress()}</text> : null}
 						{visible().length === 0 ? <text fg={muted()}>All done</text> : null}
+						{/* Tasks wrap instead of clipping: a half-readable todo is useless. */}
 						{visible().map((todo: any) => (
 							<box flexDirection="row" gap={1}>
 								<TodoMark status={todo?.status} />
-								<text fg={muted()}>{todo?.content ?? ""}</text>
+								<text fg={todo?.status === "completed" ? muted() : text()} wrapMode="word" flexShrink={1}>
+									{todo?.content ?? ""}
+								</text>
 							</box>
 						))}
 						{completed().length > 0 ? (
 							<box flexDirection="row" onMouseDown={toggleShowCompleted}>
 								<text fg={muted()}>
-									{showCompleted() ? "Hide completed" : `Show ${completed().length} completed`}
+									{showCompleted() ? "hide completed" : `${completed().length} completed`}
 								</text>
 							</box>
 						) : null}

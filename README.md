@@ -1,188 +1,188 @@
-# opencode-statusdeck
+# opencode-sidebar-tui
 
-**A combined, modified OpenCode V2 distribution, not an upstream original.**
+A live-status sidebar and prompt footer for **OpenCode V2**.
 
-This package brings together three pieces that normally live as separate
-OpenCode extensions and adds behavior that none of the upstream versions
-provide:
+One ordered panel shows what the session is actually doing — MCP servers,
+provider budget, context usage, loaded plugins, skills in use, and the todo
+list — while the footer carries git state, provider spend and the project path.
 
-- an ordered sidebar with MCP, Budget, Context, Plugins, Skills, and Todo;
-- a prompt-footer contribution with git status and provider budget;
-- an optional server-side todo/auto-todo plugin.
+```
+MCP ↻                              2
+  • nblm
+  • rea
+────────────────────────────────────
+BUDGET $                     10% left
+  ▬▬▬▬▬   $16.01 left of $160.00
+  OpenRouter · $143.99 used
+  Σ 84 · $45.10
+────────────────────────────────────
+CONTEXT                        24%
+  ▬▬▬▬▬▬▬▬   248K / 1.0M · $0.40
+  cache 98% · 35.8 t/s
+────────────────────────────────────
+SKILLS ?                          11
+  • high-end-visual-design
+  • gstack-react
+  180 more
+────────────────────────────────────
+TODO                            2/7
+  running for 10m02s
+  x Check rendering tooling (node,
+    Edge/Chrome, draw.mjs)
+  • Rebuild Option 1 mock with real
+    character (molten-gold heritage,
+    evolved)
+```
 
-It is maintained as a small local distribution. The package name is
-`opencode-statusdeck`; no npm or GitHub release has been published yet.
+![OpenCode session with the status sidebar and footer](docs/sidebar.png)
 
-The name is deliberate: the plain `opencode-sidebar` name already belongs to an
-unrelated tmux sidebar launcher on npm, and "statusdeck" describes what is
-actually shipped - a deck of status panels plus a status footer.
+## What it does
 
-The local checkout folder is still `~/opencode-combo`; that is only a path.
-Rename it whenever you like and update the two install paths below to match.
+**Sidebar** — six sections in a fixed order (MCP, Budget, Context, Plugins,
+Skills, Todo). Section headers are quiet and uppercase, values carry the
+colour, and every row has one consistent marker: `•` active, `·` idle, `x`
+done, `*` pinned.
 
-## What is combined
+- **MCP** — servers with a health dot, plus resource and call counts.
+- **Budget** — remaining provider budget with a bar, the exact figures, and
+  the cross-session spend total behind `Σ`.
+- **Context** — window usage, token counts, session cost, cache rate and
+  tokens per second.
+- **Plugins** — active plugins, versions, and how often each one's tools ran.
+- **Skills** — used skills rise to the top and light up; pin the ones you keep
+  reaching for. Usage updates as the model loads a skill, not at the end of
+  the turn.
+- **Todo** — tasks from the session's todo tool, with progress, elapsed time,
+  and wrapped task text so nothing is cut off.
 
-| Piece | Upstream | What changed here |
-| --- | --- | --- |
-| Sidebar | Local `oc-sidebar` implementation | Keeps the order MCP, Budget, Context, Plugins, Skills, Todo; live skill/plugin usage; used items sort upward; `+N more` expands inline; no row copy buttons. |
-| Footer | `opencode-git-status` by Alexey Shirshov (MIT) | Merged into the same TUI entrypoint; keeps git and provider-budget segments; removes the extra custom path so `path:branch` appears once; option reads are defensive. |
-| Auto-todo | `opencode-todolist` by aiev (MIT) | Server entry is packaged as an optional part of this package; the `todowrite`/`todoread` tools and auto-todo prompt remain. |
+**Footer** — git branch and change counts, the provider serving the current
+model (click it to switch), remaining provider budget, and the project path.
 
-The coffee, ponytail, and model-picker widgets are **not bundled**. They are
-separate `@rizal72` companion plugins and remain optional.
-
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the upstream notices.
-The sidebar source had no separate upstream LICENSE or README when this
-distribution was assembled; verify its provenance before public
-redistribution.
-
-## Features
-
-- Sidebar sections stay in this exact order: **MCP, Budget, Context, Plugins,
-  Skills, Todo**.
-- Active skills and plugins move above inactive ones and show a status dot.
-  Skill usage updates as the model loads skills.
-- Skills show a compact list and an inline `+N more` control instead of
-  opening a separate dialog.
-- Todo updates are shown in the sidebar. With **Show completed** enabled, all
-  tasks are listed; bracket indicators remain visible.
-- The server plugin makes the model create a short todo list for multi-step
-  requests without waiting for the user to ask.
-- MCP, Plugins, and Skills have no copy buttons or copy icons.
-- The sidebar Budget row keeps the `Σ` session-cost marker. The bottom footer
-  keeps the coffee/ponytail badges from their companion plugins and one
-  `path:branch` display.
-- The footer shows the provider serving the current model: for OpenRouter it
-  resolves the vendor from the model id (`anthropic/claude-...` shows
-  `◇ anthropic`), otherwise it shows the provider id. Clicking it opens the
-  model picker, so a provider switch takes one click.
-- Sidebar settings are kept under plugin id `oc-sidebar.tui` and storage key
-  `oc-sidebar.settings`, matching the previous local sidebar.
+**Optional server plugin** — a todo tool plus an auto-todo instruction that
+nudges the model to keep a short task list for multi-step work.
 
 ## Requirements
 
-- OpenCode V2, tested with `2.1.3` (the package uses V2 plugin APIs).
-- Windows is the tested platform. The code uses `~/.local/share/opencode` for
-  the OpenCode database and auth file, which is how the tested installation is
-  laid out; other platforms are likely but not verified.
+- OpenCode **V2** (developed against `2.2.0`).
+- The TUI plugin API exposes `sidebar.content`, `sidebar.footer` and
+  `prompt.footer.status`; older builds without those slots will not render it.
+- Windows is the tested platform. The budget panels read
+  `~/.local/share/opencode` for the auth file and database, which is the layout
+  on the tested install; other platforms are untested.
 - `git` on `PATH` for the footer git segment.
-- Provider-budget display is currently meaningful for OpenCode Go, OpenCode
-  Zen, and OpenRouter. Other providers simply omit that segment.
 
 ## Install
 
-Back up the two config files first:
+### From npm (after a release)
 
-```text
-~/.config/opencode/cli.json
-~/.config/opencode/opencode.jsonc
+```bash
+opencode plugin add opencode-sidebar-tui
 ```
 
-Restart OpenCode after changing plugin entries. Existing sessions, auth, MCP
-configuration, and sidebar preferences are not modified by this package.
+That registers the package in the global plugin configuration. Restart OpenCode
+afterwards so the TUI half loads.
 
-### 1. TUI sidebar and footer
+### From a local checkout
 
-Until the package is published, point `cli.json` at this local folder. Replace
-the old `oc-sidebar` and `oc-git-status` entries with one entry:
+Point OpenCode at the directory in both configuration files, then restart:
 
-```jsonc
+`~/.config/opencode/cli.json` (TUI half):
+
+```json
 {
-  "plugins": [
-    "-opencode.sidebar.context",
-    "-opencode.sidebar.mcp",
-    "-opencode.sidebar.todo",
-    "-opencode.sidebar.footer",
-    "-opencode.plugins",
-    "-aiev.todolist.tui",
-    "C:/Users/r00tb3/opencode-combo"
-  ]
+  "plugins": ["C:/path/to/opencode-sidebar-tui"]
 }
 ```
 
-When the package is published, replace the last entry with the pinned package
-name, for example:
-
-```jsonc
-"opencode-statusdeck@0.2.0"
-```
-
-The package's plugin id remains `oc-sidebar.tui`, so the previous sidebar
-settings file can be reused.
-
-### 2. Optional auto-todo server
-
-Add the package to `opencode.jsonc` only if you want the `todowrite` /
-`todoread` tools and the automatic todo prompt:
+`~/.config/opencode/opencode.jsonc` (server half, optional):
 
 ```jsonc
 {
-  "plugins": ["C:/Users/r00tb3/opencode-combo"]
+  "plugin": ["C:/path/to/opencode-sidebar-tui"]
 }
 ```
 
-When published, use the same pinned package name:
+Do not load two copies of this plugin, or the todo tools and the sidebar will
+both be registered twice.
 
-```jsonc
-{
-  "plugins": ["opencode-statusdeck@0.2.0"]
-}
-```
+## Use
 
-Remove the old `opencode-todolist` server entry and the old
-`aiev.todolist.tui` TUI entry. Do not load both the old plugin and this
-package; they register the same todo tools.
+| Action | How |
+| --- | --- |
+| Sidebar settings | `/sidebar` |
+| Cross-session spend | `/usage` |
+| Footer icon legend | `/footer-key` |
+| Toggle a section | click its header |
+| Pin a skill | click the skill row |
+| Switch provider | click the `◇` segment in the footer |
 
-The TUI-only install is valid: skip step 2 and keep using your existing todo
-tools. The sidebar still renders whatever todo data is already in the session
-store.
+Sections remember their collapsed state, pinned skills and the completed-todo
+filter under plugin id `oc-sidebar.tui` and storage key `oc-sidebar.settings`,
+so the layout survives restarts and upgrades.
 
-## Settings and compatibility
+## Troubleshooting
 
-- Plugin id: `oc-sidebar.tui`
-- Settings key: `oc-sidebar.settings`
-- Existing settings such as `showCompleted` and section expansion are
-  expected to survive the switch because the id and key are unchanged.
-- The footer reads `interval` from plugin options; the default is 2500 ms.
-  A value below 500 ms is clamped to the default.
+**Sidebar is empty.** The TUI half ships as TypeScript source and OpenCode
+transpiles it at startup. If rows never populate, confirm the host loaded this
+package's `tui.tsx` (see `~/.local/share/opencode/log/opencode.log`) and not a
+prebuilt bundle from an older install.
 
-## Rollback
+**Sidebar is missing entirely.** OpenCode hides the right pane when the session
+area is narrow. Widen the terminal or hide/show the sidebar with the leader key
+then `b`.
 
-1. Restore `cli.json` and `opencode.jsonc` from your backup.
-2. Remove the package entry from both files.
-3. Restart OpenCode.
+**Skills never light up.** Skill usage is read from session messages. If a call
+does not appear, the skill's tool name is something other than `skill` or
+`*​.skill` on your build.
 
-The package does not delete sessions, auth, MCP state, or settings. The local
-backup used during packaging is in
-`C:\Users\r00tb3\opencode-combo-backup-20261024-115256`.
+**Budget shows nothing.** The budget segments need provider credentials for
+OpenRouter or OpenCode Zen; other providers show no budget row.
 
 ## Development
 
+There is no build step for the TUI. OpenCode loads `src/tui.tsx` and transpiles
+it with its own Solid transform, which is required: bundling the TUI ahead of
+time collapses reactive children into one eager render and leaves every list
+empty. Keep the TUI as source.
+
 ```bash
-bun run build       # builds dist/tui.js from src/tui.tsx
-npm pack --dry-run  # inspect the published files
-npm pack            # create the installable tarball
+npm run pack:check                              # what would be published
+bun build --no-bundle src/tui.tsx --outdir .check   # syntax check
+npm pack                                        # installable tarball
 ```
 
-The server side is currently shipped from the prebuilt `dist/server` output
-and its vendored source in `src/server`. The TUI build externalizes the host
-packages (`@opencode/plugin/tui`, `solid-js`, `@opentui/*`) so OpenCode
-provides them at runtime. Local-directory installs use the root `index.ts` and
-`tui.tsx` shims; npm installs use the package export map.
+Layout:
 
-## Known limitations
+```
+src/tui.tsx            plugin entry, registers the sidebar and footer
+src/sidebar/tui.tsx    sidebar sections, indexes for skills/plugins/todos
+src/sidebar/todos.js   todo normalisation
+src/sidebar/timing.js  per-task timing
+src/footer/tui.tsx     footer segments, git state, provider budget
+src/server/            optional server half (todo tool, auto-todo)
+tools/                 local maintenance scripts
+```
 
-- V2-only; this is not a V1 plugin.
-- The Windows-tested install assumes OpenCode's data and auth files are under
-  `~/.local/share/opencode`.
-- The provider-budget segment depends on provider-specific endpoints and
-  credentials.
-- Auto-todo is a model instruction, not a deterministic scheduler; behavior
-  depends on the active model following the prompt.
-- The package is local-only until a release name, scope, and provenance review
-  are approved.
+## Releasing
+
+```bash
+npm version patch          # or minor / major
+npm run pack:check
+npm publish
+git tag v$(node -p "require('./package.json').version")
+```
+
+The package name `opencode-sidebar-tui` is registered for this project. The
+name `opencode-sidebar` on npm belongs to an unrelated tmux launcher, so this
+project does not use it.
+
+## Credits
+
+This distribution combines and modifies work from several OpenCode
+extensions — the upstream git-status footer, the todo-list plugin, and the
+earlier local sidebar. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for
+the notices and [LICENSE](LICENSE) for the MIT terms that cover this build.
 
 ## License
 
-MIT for this distribution. Upstream MIT notices are reproduced in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT.

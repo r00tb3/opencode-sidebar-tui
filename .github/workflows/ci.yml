@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # The TUI ships as source; this only proves each entry transpiles.
+      - name: Transpile sources
+        run: |
+          bun build --no-bundle src/tui.tsx --outfile .check/tui.js
+          bun build --no-bundle src/footer/tui.tsx --outfile .check/footer.js
+          bun build --no-bundle src/server/index.ts --outfile .check/server.js
+
+      - name: Check the published file list
+        run: npm pack --dry-run
