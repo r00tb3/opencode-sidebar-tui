@@ -8,6 +8,14 @@
   "engines": {
     "node": ">=20"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/r00tb3/opencode-sidebar-tui.git"
+  },
+  "homepage": "https://github.com/r00tb3/opencode-sidebar-tui#readme",
+  "bugs": {
+    "url": "https://github.com/r00tb3/opencode-sidebar-tui/issues"
+  },
   "main": "./dist/server/index.js",
   "types": "./dist/server/index.d.ts",
   "exports": {
