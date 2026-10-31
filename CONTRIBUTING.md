@@ -33,6 +33,16 @@ Restart OpenCode for the TUI half to reload. The plugin writes a trace to
 `%TEMP%\oc-sidebar.log` on Windows, which is the quickest way to see whether it
 loaded and what data it found.
 
+## Screenshot
+
+`docs/sidebar.png` is generated from `docs/screenshot.html`, so it can be
+re-rendered after a layout change without touching a real session:
+
+```bash
+msedge --headless=new --hide-scrollbars --force-device-scale-factor=3 \
+  --window-size=900,760 --screenshot=docs/sidebar.png docs/screenshot.html
+```
+
 ## Style
 
 - TypeScript, tabs for indentation, no semicolon-heavy style changes.

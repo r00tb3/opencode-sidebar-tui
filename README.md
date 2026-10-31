@@ -6,34 +6,6 @@ One ordered panel shows what the session is actually doing — MCP servers,
 provider budget, context usage, loaded plugins, skills in use, and the todo
 list — while the footer carries git state, provider spend and the project path.
 
-```
-MCP ↻                              2
-  • nblm
-  • rea
-────────────────────────────────────
-BUDGET $                     10% left
-  ▬▬▬▬▬   $16.01 left of $160.00
-  OpenRouter · $143.99 used
-  Σ 84 · $45.10
-────────────────────────────────────
-CONTEXT                        24%
-  ▬▬▬▬▬▬▬▬   248K / 1.0M · $0.40
-  cache 98% · 35.8 t/s
-────────────────────────────────────
-SKILLS ?                          11
-  • high-end-visual-design
-  • gstack-react
-  180 more
-────────────────────────────────────
-TODO                            2/7
-  running for 10m02s
-  x Check rendering tooling (node,
-    Edge/Chrome, draw.mjs)
-  • Rebuild Option 1 mock with real
-    character (molten-gold heritage,
-    evolved)
-```
-
 ![OpenCode session with the status sidebar and footer](docs/sidebar.png)
 
 ## What it does
