@@ -1,5 +1,9 @@
 # opencode-sidebar-tui
 
+[![CI](https://github.com/r00tb3/opencode-sidebar-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/r00tb3/opencode-sidebar-tui/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/opencode-sidebar-tui.svg)](https://www.npmjs.com/package/opencode-sidebar-tui)
+[![license](https://img.shields.io/npm/l/opencode-sidebar-tui.svg)](LICENSE)
+
 A live-status sidebar and prompt footer for **OpenCode V2**.
 
 One ordered panel shows what the session is actually doing — MCP servers,

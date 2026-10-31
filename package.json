@@ -1,6 +1,6 @@
 {
   "name": "opencode-sidebar-tui",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Live-status sidebar and footer for OpenCode V2: MCP, budget, context, plugins, skills and todos in one ordered panel, plus git status and provider spend in the prompt footer.",
   "author": "opencode-sidebar-tui contributors",
   "license": "MIT",
