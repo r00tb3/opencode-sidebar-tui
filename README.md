@@ -45,14 +45,24 @@ nudges the model to keep a short task list for multi-step work.
 
 ## Install
 
-### From npm (after a release)
+### From npm
 
 ```bash
 opencode plugin add opencode-sidebar-tui
 ```
 
-That registers the package in the global plugin configuration. Restart OpenCode
-afterwards so the TUI half loads.
+That registers the optional server half (the todo tool). The sidebar and footer
+are the TUI half, and OpenCode keeps those in a separate list — add the package
+name to `~/.config/opencode/cli.json`:
+
+```json
+{
+  "plugins": ["opencode-sidebar-tui"]
+}
+```
+
+Then restart OpenCode. Verify both halves with `opencode plugin list`, which
+should print `opencode-sidebar-tui` with the installed version.
 
 ### From a local checkout
 
